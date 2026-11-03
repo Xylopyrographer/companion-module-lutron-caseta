@@ -11,8 +11,24 @@ const COMPARISONS = [
 
 export function UpdateFeedbacks(self: ModuleInstance): void {
 	const choices = self.lightDevices().map((device) => ({ id: device.SerialNumber, label: self.deviceLabel(device) }))
+	const feedbacks: CompanionFeedbackDefinitions = {}
+
+	if (self.config.includePicos && self.picoButtons.length > 0) {
+		const picoChoices = self.picoButtons.map((button) => ({ id: button.id, label: button.label }))
+		feedbacks.pico_pressed = {
+			name: 'Pico button is pressed',
+			description: 'True from the moment the Pico button is pressed until it is released',
+			type: 'boolean',
+			defaultStyle: { bgcolor: combineRgb(230, 126, 34), color: combineRgb(255, 255, 255) },
+			options: [
+				{ id: 'button', type: 'dropdown', label: 'Pico button', choices: picoChoices, default: picoChoices[0].id },
+			],
+			callback: (feedback) => self.picoPressed.get(feedback.options.button as string) === true,
+		}
+	}
+
 	if (choices.length === 0) {
-		self.setFeedbackDefinitions({})
+		self.setFeedbackDefinitions(feedbacks)
 		return
 	}
 
@@ -25,7 +41,7 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 	}
 	const onStyle = { bgcolor: combineRgb(0, 153, 0), color: combineRgb(255, 255, 255) }
 
-	const feedbacks: CompanionFeedbackDefinitions = {
+	const lightFeedbacks: CompanionFeedbackDefinitions = {
 		dimmer_on: {
 			name: 'Light is on',
 			description: 'True when the light is on (level above 0)',
@@ -66,5 +82,5 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 			},
 		},
 	}
-	self.setFeedbackDefinitions(feedbacks)
+	self.setFeedbackDefinitions({ ...feedbacks, ...lightFeedbacks })
 }

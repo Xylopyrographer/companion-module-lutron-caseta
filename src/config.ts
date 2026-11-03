@@ -7,6 +7,7 @@ export interface ModuleConfig {
 	port: number
 	bridgeID?: string
 	defaultFadeTime?: number
+	includePicos?: boolean
 }
 
 export interface ModuleSecrets {
@@ -52,6 +53,15 @@ export function GetConfigFields(discoveredBridges: Record<string, string>): Some
 			min: 0,
 			max: 10,
 			step: 0.25,
+		},
+		{
+			type: 'checkbox',
+			id: 'includePicos',
+			label: 'Include Pico Remotes',
+			tooltip:
+				'Adds a feedback for each Pico button and last-button variables. Leave off if you do not use Picos in Companion.',
+			width: 8,
+			default: false,
 		},
 	]
 }

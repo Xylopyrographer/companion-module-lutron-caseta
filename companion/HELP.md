@@ -18,7 +18,7 @@ Supported, but not yet tested on hardware
 
 - Caseta Plug-in Switches
 
-Pico remotes are listed on the bridge but have no actions. Shades, fans, occupancy sensors and thermostats are not supported.
+Pico remotes can be used as triggers when **Include Pico Remotes** is ticked in the connection configuration (see Pico remotes below). Shades, fans, occupancy sensors and thermostats are not supported.
 
 If you have a device that works with this module but it is not listed, please open an issue to have it added. If you would like to have support added for a device, please open an issue to add support.
 
@@ -53,6 +53,17 @@ The module follows the state of each light, including changes made at the wall, 
 - **Light level compared to value** is true when the level is above, below or equal to a value you choose (0 to 100).
 - Each light has a **level** variable (0 to 100), for example `$(lutron-caseta:12345678_level)`. The variable list shows the room and device name. Switches report 0 or 100.
 - During a fade, the level and feedbacks show the target level straight away, not the intermediate brightness.
+
+### Pico remotes
+
+Tick **Include Pico Remotes** in the connection configuration to use Pico buttons in Companion. It is off by default. Picos only send button presses, so there are no actions. Remotes that are not assigned to a room are included.
+
+- **Pico button is pressed** is true from the moment the button is pressed until it is released, so it also works for press and hold.
+- **last_pico_device**, **last_pico_button** and **last_pico_event** hold the remote name, the button name (as named by the bridge, such as "Button 1") and the event (`Press` or `Release`) of the most recent button event. A Companion trigger can fire when these change.
+
+On the 5-button raise/lower remotes the dropdown also shows what the button is printed as: Button 1 is On (top), Button 2 is Favorite (middle), Button 3 is Off (bottom), Button 4 is Raise and Button 5 is Lower. The 4-button scene remotes show only "Button 1" to "Button 4", numbered from top to bottom, since what those do depends on how they are programmed.
+
+Buttons are identified by the remote's serial number and button number, so renaming a remote in the Lutron app does not break a saved feedback. Restart the connection after adding or renaming a remote to refresh the lists.
 
 ### Connection loss
 

@@ -45,3 +45,38 @@ export function parseZoneStatuses(body: unknown): ZoneLevel[] {
 	}
 	return result
 }
+
+export function isPicoDevice(device: DeviceDefinition): boolean {
+	return device.DeviceType.startsWith('Pico') && (device.ButtonGroups?.length ?? 0) > 0
+}
+
+// One physical Pico button. `id` is stable across renames (device serial plus bridge button number).
+export interface PicoButton {
+	id: string
+	href: string
+	deviceName: string
+	buttonName: string
+	label: string
+}
+
+// Returns 'Press' or 'Release' (the only types seen from Picos), or undefined if the body is not a button event
+export function parseButtonEvent(body: unknown): string | undefined {
+	const b = body as { ButtonStatus?: { ButtonEvent?: { EventType?: string } } } | undefined
+	return b?.ButtonStatus?.ButtonEvent?.EventType
+}
+
+// Printed legends on the Pico3ButtonRaiseLower (PJ2-3BRL) remote, by bridge ButtonNumber (named "Button 1" to "Button 5")
+const PICO_3BRL_FUNCTIONS: Record<number, string> = {
+	0: 'On',
+	1: 'Favorite',
+	2: 'Off',
+	3: 'Raise',
+	4: 'Lower',
+}
+
+// "BlueTag: Button 1 (On)" for 5-button remotes. Scene Picos keep the bridge's name alone because
+// what their buttons do depends on how they are programmed.
+export function picoButtonLabel(device: DeviceDefinition, buttonName: string, buttonNumber: number): string {
+	const legend = device.DeviceType === 'Pico3ButtonRaiseLower' ? PICO_3BRL_FUNCTIONS[buttonNumber] : undefined
+	return `${device.Name}: ${buttonName}${legend ? ` (${legend})` : ''}`
+}

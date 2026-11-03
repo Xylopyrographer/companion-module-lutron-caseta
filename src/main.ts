@@ -21,7 +21,15 @@ import {
 } from 'lutron-leap'
 import forge from 'node-forge'
 import { readFileSync } from 'node:fs'
-import { isLightDevice, zoneHrefOf, parseZoneStatuses } from './devices.js'
+import {
+	isLightDevice,
+	isPicoDevice,
+	zoneHrefOf,
+	parseZoneStatuses,
+	parseButtonEvent,
+	picoButtonLabel,
+	type PicoButton,
+} from './devices.js'
 
 const PAIRING_PORT = 8083
 const LEAP_PORT = 8081
@@ -69,6 +77,10 @@ export class ModuleInstance extends InstanceBase<ModuleConfig, ModuleSecrets> {
 	sceneButtons: { href: string; name: string }[]
 	areaNames: Map<string, string> // device serial number -> area name
 	zoneLevels: Map<string, number> // zone href -> level (0-100)
+	picoDevices: DeviceDefinition[] // includes Picos not assigned to a room
+	picoButtons: PicoButton[]
+	picoPressed: Map<string, boolean> // PicoButton id -> currently held
+	lastPico = { device: '', button: '', event: '' }
 	private reconnectTimer?: NodeJS.Timeout
 	private reconnectDelay = RECONNECT_INITIAL_MS
 	private healthTimer?: NodeJS.Timeout
@@ -83,6 +95,9 @@ export class ModuleInstance extends InstanceBase<ModuleConfig, ModuleSecrets> {
 		this.sceneButtons = []
 		this.areaNames = new Map()
 		this.zoneLevels = new Map()
+		this.picoDevices = []
+		this.picoButtons = []
+		this.picoPressed = new Map()
 	}
 
 	async init(config: ModuleConfig, _isFirstInit: boolean, secrets: ModuleSecrets): Promise<void> {
@@ -279,6 +294,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig, ModuleSecrets> {
 
 			await this.loadDevices()
 			await this.loadAreaNames()
+			await this.loadPicoButtons()
 			await this.logZoneControlTypes()
 			await this.loadScenes()
 			this.updateVariableDefinitions()
@@ -304,6 +320,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig, ModuleSecrets> {
 
 	async loadDevices(): Promise<void> {
 		this.devicesOnBridge = []
+		this.picoDevices = []
 		this.sceneButtons = []
 		const devices = (await this.bridge?.getDeviceInfo()) ?? []
 		devices.forEach((device) => {
@@ -319,6 +336,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig, ModuleSecrets> {
 					'debug',
 					`device ${device.Name}: DeviceType=${device.DeviceType} LocalZones=${JSON.stringify(device.LocalZones)}`,
 				)
+				if (isPicoDevice(device)) this.picoDevices.push(device) // remotes need not be assigned to a room
 				if (device.AssociatedArea) {
 					this.log('info', `${device.DeviceType} device found ${device.Name}.`)
 					this.devicesOnBridge.push(device)
@@ -340,6 +358,67 @@ export class ModuleInstance extends InstanceBase<ModuleConfig, ModuleSecrets> {
 				}
 			}),
 		)
+	}
+
+	// Read every button of every Pico. Only done when "Include Pico Remotes" is ticked.
+	async loadPicoButtons(): Promise<void> {
+		this.picoButtons = []
+		this.picoPressed.clear()
+		if (!this.config.includePicos || !this.bridge) return
+		for (const device of this.picoDevices) {
+			try {
+				const groups = await this.bridge.getButtonGroupsFromDevice(device)
+				for (const group of groups) {
+					if (!('Buttons' in group)) continue
+					const buttons = await this.bridge.getButtonsFromGroup(group)
+					for (const button of buttons) {
+						this.picoButtons.push({
+							id: `${device.SerialNumber}_${button.ButtonNumber}`,
+							href: button.href,
+							deviceName: device.Name,
+							buttonName: button.Name,
+							label: picoButtonLabel(device, button.Name, button.ButtonNumber),
+						})
+					}
+				}
+			} catch (err: any) {
+				this.log('warn', `Could not read buttons for ${device.Name}: ${err.message}`)
+			}
+		}
+		this.log('info', `Found ${this.picoButtons.length} Pico button(s) on ${this.picoDevices.length} remote(s)`)
+	}
+
+	// Subscribe to each Pico button's events. Like zone subscriptions, these must be redone after a reconnect.
+	async subscribePicoButtons(): Promise<void> {
+		const client = this.bridge?.client
+		if (!client) return
+		for (const button of this.picoButtons) {
+			const { response } = await client.subscribe(`${button.href}/status/event`, (resp) => {
+				this.handlePicoEvent(button, resp.Body)
+			})
+			if (!response.Header.StatusCode?.isSuccessful()) {
+				this.log('warn', `Subscription to ${button.label} refused: ${JSON.stringify(response.Header.StatusCode)}`)
+			}
+		}
+	}
+
+	handlePicoEvent(button: PicoButton, body: unknown): void {
+		const eventType = parseButtonEvent(body)
+		if (!eventType) return
+		if (eventType === 'Press') this.picoPressed.set(button.id, true)
+		else if (eventType === 'Release') this.picoPressed.set(button.id, false)
+		this.lastPico = { device: button.deviceName, button: button.buttonName, event: eventType }
+		this.publishPicoVariables()
+		this.checkFeedbacks('pico_pressed')
+	}
+
+	publishPicoVariables(): void {
+		if (!this.config.includePicos) return
+		this.setVariableValues({
+			last_pico_device: this.lastPico.device,
+			last_pico_button: this.lastPico.button,
+			last_pico_event: this.lastPico.event,
+		})
 	}
 
 	// Lights that have a zone, i.e. everything that can report a level
@@ -378,6 +457,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig, ModuleSecrets> {
 		this.log('debug', `/zone/status read response: ${JSON.stringify(seed.Body)}`)
 		this.handleZoneStatus(seed.Body)
 		this.log('info', `Subscribed to level changes for ${this.lightDevices().length} light(s)`)
+		await this.subscribePicoButtons()
 	}
 
 	handleZoneStatus(body: unknown): void {
@@ -534,6 +614,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig, ModuleSecrets> {
 	updateVariableDefinitions(): void {
 		UpdateVariableDefinitions(this)
 		this.publishLevels()
+		this.publishPicoVariables()
 	}
 }
 
