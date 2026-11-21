@@ -8,7 +8,6 @@ We currently provide support for light switches, dimmers and scenes. Other types
 
 Known Working Devices
 
-- Caseta Light Switches
 - Caseta Light Dimmers
 - Caseta Plug-in Lamp Dimmers
 - Diva Light Switches
@@ -16,6 +15,7 @@ Known Working Devices
 
 Supported, but not yet tested on hardware
 
+- Caseta Light Switches
 - Caseta Plug-in Switches
 
 Pico remotes can be used as triggers when **Include Pico Remotes** is ticked in the connection configuration (see Pico remotes below). Shades, fans, occupancy sensors and thermostats are not supported.
@@ -28,13 +28,13 @@ When first setting up a connection you will need to pair with the Caseta Smart B
 
 ### Actions
 
-**Turn On, Turn Off and Set Brightness** are available for each dimmer. Switches have Turn On and Turn Off only. Actions are labelled with the room name set in the Lutron app followed by the device name.
+**Turn On, Turn Off and Set Brightness** are available for each dimmer. Switches have Turn On and Turn Off only, and no fade time. Actions are labelled with the room name set in the Lutron app followed by the device name.
 
 **Activate Scene** activates a scene that was created in the Lutron app. The scene list is read from the bridge when the connection starts, so restart the connection after adding or renaming a scene. Only scenes that are programmed on the bridge are listed.
 
 ### Fade time
 
-Dimmer actions fade over a time in seconds. The module has a **Default Fade Time (seconds)** setting in the connection configuration (0 to 10 seconds, default 4). Each dimmer action has a **Use module default fade time** checkbox that is ticked by default. Untick it to enter a fade time for that action alone.
+Dimmer actions fade over a time in seconds. Switches turn on and off immediately, so their actions have no fade time. The module has a **Default Fade Time (seconds)** setting in the connection configuration (0 to 10 seconds, default 4). Each dimmer action has a **Use module default fade time** checkbox that is ticked by default. Untick it to enter a fade time for that action alone.
 
 Actions saved with an earlier version of this module keep the fade time they were saved with.
 

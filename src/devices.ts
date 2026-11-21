@@ -7,6 +7,14 @@ export function isLightDevice(device: DeviceDefinition): boolean {
 	return LIGHT_DEVICE_TYPES.includes(device.DeviceType)
 }
 
+// On/off-only devices. The bridge rejects GoToDimmedLevel for these zones
+// ("GoToDimmedLevel is only supported on Dimmed zones"), so they get a GoToLevel command instead.
+const SWITCH_DEVICE_TYPES = ['WallSwitch', 'PlugInSwitch']
+
+export function isSwitchDevice(device: DeviceDefinition): boolean {
+	return SWITCH_DEVICE_TYPES.includes(device.DeviceType)
+}
+
 export function zoneHrefOf(device: DeviceDefinition): string | undefined {
 	return device.LocalZones?.[0]?.href
 }

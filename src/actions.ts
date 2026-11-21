@@ -2,6 +2,7 @@ import { CompanionActionDefinition } from '@companion-module/base'
 import type { ModuleInstance } from './main.js'
 import { DeviceDefinition } from 'lutron-leap'
 import { DEFAULT_FADE_TIME } from './config.js'
+import { isSwitchDevice } from './devices.js'
 
 export async function UpdateActions(self: ModuleInstance): Promise<void> {
 	const deviceActions: Record<string, CompanionActionDefinition> = {}
@@ -95,23 +96,28 @@ function createDimmerAction(
 		})
 	}
 
-	options.push({
-		id: 'use_default_fade',
-		type: 'checkbox',
-		label: 'Use module default fade time',
-		default: true,
-	})
-	options.push({
-		id: 'fade_time',
-		type: 'number',
-		label: 'Fade Time (seconds)',
-		default: DEFAULT_FADE_TIME,
-		min: 0,
-		max: 10,
-		step: 0.25,
-		range: true,
-		isVisible: (options) => !options.use_default_fade,
-	})
+	// Switches only turn on or off, so they have no fade time.
+	const isSwitch = isSwitchDevice(device)
+
+	if (!isSwitch) {
+		options.push({
+			id: 'use_default_fade',
+			type: 'checkbox',
+			label: 'Use module default fade time',
+			default: true,
+		})
+		options.push({
+			id: 'fade_time',
+			type: 'number',
+			label: 'Fade Time (seconds)',
+			default: DEFAULT_FADE_TIME,
+			min: 0,
+			max: 10,
+			step: 0.25,
+			range: true,
+			isVisible: (options) => !options.use_default_fade,
+		})
+	}
 
 	return {
 		name: `${areaName} ${device.Name}: ${actionType === 'on' ? 'Turn On' : actionType === 'off' ? 'Turn Off' : 'Set Brightness'}`,
@@ -119,22 +125,26 @@ function createDimmerAction(
 		callback: async (event) => {
 			const level = isOnOff ? fixedLevel : (event.options.brightness_value as number)
 
-			const fadeTimeValue = event.options.use_default_fade
-				? (self.config.defaultFadeTime ?? DEFAULT_FADE_TIME)
-				: (event.options.fade_time as number) || 0
-			const fadeTimeFormatted = formatFadeTime(fadeTimeValue)
-
 			try {
-				self.log('debug', `Setting ${device.Name} to ${level}% with fade time ${fadeTimeFormatted}`)
+				let command: Record<string, unknown>
+				if (isSwitch) {
+					self.log('debug', `Setting ${device.Name} to ${level === 0 ? 'off' : 'on'}`)
+					command = { CommandType: 'GoToLevel', Parameter: [{ Type: 'Level', Value: level }] }
+				} else {
+					const fadeTimeValue = event.options.use_default_fade
+						? (self.config.defaultFadeTime ?? DEFAULT_FADE_TIME)
+						: (event.options.fade_time as number) || 0
+					const fadeTimeFormatted = formatFadeTime(fadeTimeValue)
+					self.log('debug', `Setting ${device.Name} to ${level}% with fade time ${fadeTimeFormatted}`)
+					command = {
+						CommandType: 'GoToDimmedLevel',
+						DimmedLevelParameters: { Level: level, FadeTime: fadeTimeFormatted },
+					}
+				}
 				const response = await self.bridge?.client.request(
 					'CreateRequest',
 					`${device.LocalZones[0].href}/commandprocessor`,
-					{
-						Command: {
-							CommandType: 'GoToDimmedLevel',
-							DimmedLevelParameters: { Level: level, FadeTime: fadeTimeFormatted },
-						},
-					},
+					{ Command: command },
 				)
 				if (!response?.Header.StatusCode?.code || response.Header.StatusCode.code > 299) {
 					const errorMessage = response?.Body && 'Message' in response.Body ? response.Body.Message : 'Unknown error'
