@@ -9,11 +9,14 @@ export async function UpdateActions(self: ModuleInstance): Promise<void> {
 
 	for (const device of self.devicesOnBridge) {
 		const areaName = self.areaNames.get(device.SerialNumber)
+		self.log(
+			'debug',
+			`Device: ${areaName ?? '(no room)'} ${device.Name}, type ${device.DeviceType}, model ${device.ModelNumber}`,
+		)
 		if (!areaName) {
 			self.log('warn', `No area name for device ${device.Name}, skipping its actions`)
 			continue
 		}
-		self.log('debug', `creating actions for ${areaName} ${device.Name}`)
 		const deviceKeyName = device.SerialNumber
 		if (
 			device.DeviceType === 'WallSwitch' ||
