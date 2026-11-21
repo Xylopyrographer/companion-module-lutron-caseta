@@ -2,6 +2,10 @@ import { Regex, type SomeCompanionConfigField } from '@companion-module/base'
 
 export const DEFAULT_FADE_TIME = 4
 
+// TEST BUILD ONLY. Shown on the settings page and in the startup log so a tester can tell which
+// build is loaded. Bump it on each rebuild. Remove this, its two uses and the commit that adds it before any PR.
+export const TEST_BUILD_ID = 'switch-test-1'
+
 export interface ModuleConfig {
 	host: string
 	port: number
@@ -22,6 +26,13 @@ export interface BridgeCerts {
 
 export function GetConfigFields(discoveredBridges: Record<string, string>): SomeCompanionConfigField[] {
 	return [
+		{
+			type: 'static-text',
+			id: 'testBuild',
+			width: 12,
+			label: 'Test build',
+			value: `Pre-release test build ${TEST_BUILD_ID}. Not an official release.`,
+		},
 		{
 			type: 'static-text',
 			id: 'info1',

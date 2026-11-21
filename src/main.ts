@@ -5,7 +5,7 @@ import {
 	SomeCompanionConfigField,
 	CompanionVariableValues,
 } from '@companion-module/base'
-import { GetConfigFields, type ModuleConfig, type ModuleSecrets } from './config.js'
+import { GetConfigFields, TEST_BUILD_ID, type ModuleConfig, type ModuleSecrets } from './config.js'
 import { UpdateVariableDefinitions } from './variables.js'
 import { UpgradeScripts } from './upgrades.js'
 import { UpdateActions } from './actions.js'
@@ -104,7 +104,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig, ModuleSecrets> {
 		this.config = config
 		this.secrets = secrets
 
-		this.log('info', `Lutron Caseta module version ${moduleVersion()} starting`)
+		this.log('info', `Lutron Caseta module version ${moduleVersion()} (test build ${TEST_BUILD_ID}) starting`)
 
 		// discover bridges (used for dropdown in config)
 		this.log('debug', 'Starting bridge discovery')
